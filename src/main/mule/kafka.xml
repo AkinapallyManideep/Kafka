@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="46f72966-431a-45ea-b458-9c622cbb9515" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="1d3ac97b-90b7-4bdc-95ed-c13e3e77d410" >
+		<salesforce:basic-connection username="******" password="****" securityToken="SjEVRwMJZsP9nzWD2IAGOcLI2"/>
+	</salesforce:sfdc-config>
+	<kafka:producer-config name="Apache_Kafka_Producer_configuration" doc:name="Apache Kafka Producer configuration" doc:id="cb37b032-e644-4717-a0e3-f024a30aacde" >
+		<kafka:producer-plaintext-connection >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="localhost:9092" />
+			</kafka:bootstrap-servers>
+		</kafka:producer-plaintext-connection>
+	</kafka:producer-config>
+	<kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="55a526ee-1be2-48cf-aeaf-45ee97c95198" >
+		<kafka:consumer-plaintext-connection >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="localhost:9092" />
+			</kafka:bootstrap-servers>
+			<kafka:topic-patterns >
+				<kafka:topic-pattern value="eaiesb" />
+			</kafka:topic-patterns>
+		</kafka:consumer-plaintext-connection>
+	</kafka:consumer-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="cf875c7c-e35d-4f8d-ada4-2c964ca87409" >
+		<file:connection />
+	</file:config>
+	<flow name="kafkaFlow" doc:id="888c72c6-9cf0-4cf9-a4e3-9554017e2477" >
+		<http:listener doc:name="Listener" doc:id="02dcac95-cdf3-4d47-91ae-19dd5c3af417" config-ref="HTTP_Listener_config" path="/kafka"/>
+		<salesforce:query doc:name="Query" doc:id="854f1bd4-d563-4f08-b9f7-91d6507d485b" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[select Name,Phone,Id from Account]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="1f2a1a0e-bdf7-4c7e-9fc3-b6f1c483a626" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<kafka:publish doc:name="Publish" doc:id="0f088980-43d2-4bcd-b471-ed7380c93c8b" config-ref="Apache_Kafka_Producer_configuration" topic="eaiesb ">
+		</kafka:publish>
+	</flow>
+	<flow name="kafkaFlow1" doc:id="e8225643-793a-4c42-befb-d415823836dc" >
+		<http:listener doc:name="Listener" doc:id="fde70368-1fa7-4340-a6b1-abe2be0420dc" config-ref="HTTP_Listener_config" path="consume"/>
+		<kafka:consume doc:name="Consume" doc:id="6eaa10a1-fbb2-4d4c-9e1a-0d401e6dbca3" config-ref="Apache_Kafka_Consumer_configuration"/>
+		<ee:transform doc:name="Transform Message" doc:id="59c5044a-9509-4e60-9a9c-b8052ded3afb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="886ed6fb-eed2-4fbc-ba6e-b15f94857336" config-ref="File_Config" path="D:\output\kafka_consumevalues.txt"/>
+	</flow>
+</mule>
